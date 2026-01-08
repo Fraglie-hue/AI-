@@ -1,0 +1,7 @@
+{
+  "assetsDir": "dist",
+  "functionsFile": "functions/index.js",
+  "env": {
+    "DASHSCOPE_API_KEY": "sk-2f5a3573056240fcb5890310537d0c57"
+  }
+}

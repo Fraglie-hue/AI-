@@ -49,7 +49,7 @@ export default {
     if (!text) return json({ error: "text is required" }, 400);
 
     // ✅ 在 ESA Pages 的“环境变量”里配置这个
-    const apiKey = env.DASHSCOPE_API_KEY;
+    const apiKey = env.DASHSCOPE_API_KEY||"sk-2f5a3573056240fcb5890310537d0c57";
     if (!apiKey) return json({ error: "Missing DASHSCOPE_API_KEY in env" }, 500);
 
     const prompt = `请将下面内容用中文做一个简洁摘要（80-150字），并给出3条要点：

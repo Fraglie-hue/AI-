@@ -21,8 +21,8 @@ export default {
   if (request.method === "GET" && url.pathname === "/api/env-check") {
     return new Response(
       JSON.stringify({
-        hasKey: !!env.DASHSCOPE_API_KEY,
-        keyLength: env.DASHSCOPE_API_KEY?.length || 0,
+        hasKey: !!process.env.DASHSCOPE_API_KEY,
+        keyLength: process.env.DASHSCOPE_API_KEY?.length || 0,
       }),
       {
         headers: {

@@ -17,23 +17,6 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     
-    // 🔍 环境变量自检（临时调试用）
-  if (request.method === "GET" && url.pathname === "/api/env-check") {
-    return new Response(
-      JSON.stringify({
-        hasKey: !!env.DASHSCOPE_API_KEY,
-        keyLength: env.DASHSCOPE_API_KEY?.length || 0,
-      }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
-  }
-
-
     // 只处理 /api/summarize
     if (url.pathname !== "/api/summarize") {
       return new Response("Not Found", { status: 404 });
@@ -66,7 +49,7 @@ export default {
     if (!text) return json({ error: "text is required" }, 400);
 
     // ✅ 在 ESA Pages 的“环境变量”里配置这个
-    const apiKey = env.DASHSCOPE_API_KEY;
+    const apiKey = process.env.DASHSCOPE_API_KEY;
     if (!apiKey) return json({ error: "Missing DASHSCOPE_API_KEY in env" }, 500);
     const prompt = `请将下面内容用中文做一个简洁摘要（80-150字），并给出3条要点：
 内容：

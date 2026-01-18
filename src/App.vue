@@ -14,6 +14,7 @@ watch(theme, (val) => {
 
 // 摘要模式
 const summaryMode = ref('smart')
+const summary = ref('')
 // 可选值：smart | first | length
 
 const showGuide = ref(!localStorage.getItem('edge-note-guide-seen'))
@@ -197,37 +198,81 @@ function formatTime(ts) {
 
 // 摘要生成函数
 async function fetchSummary() {
-  const text = content.value.trim()
-  if (!text) {
-    summary.value = ''
-    return
-  }
+  try {
+    const text = content.value.trim()
+    if (!text) {
+      summary.value = ''
+      return
+    }
 
-  const res = await fetch('/api/summarize', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text,
-      mode: summaryMode.value
+// ✅ 本地开发环境兜底
+    if (import.meta.env.DEV) {
+      summary.value = text.slice(0, 100)
+      return
+    }
+
+    const res = await fetch('/api/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        mode: summaryMode.value
+      })
     })
-  })
 
-  const data = await res.json()
-  summary.value = data.summary
+    const raw = await res.text()
+
+    if (!res.ok) {
+  // 这里会把 599/500 的返回内容吐出来（通常就是报错堆栈）
+      throw new Error(`HTTP ${res.status}: ${raw.slice(0, 300)}`)
+    }
+
+    let data
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      throw new Error(`Response is not JSON: ${raw.slice(0, 300)}`)
+    }
+
+    summary.value = data?.summary ?? ''
+
+  } catch (e) {
+    console.error('摘要生成失败', e)
+    summary.value = '摘要生成失败，请稍后重试'
+  }
 }
 
+
+let timer = null
+
 watch([content, summaryMode], () => {
-  fetchSummary()
+  clearTimeout(timer)
+  timer = setTimeout(() => {
+    fetchSummary()
+  }, 300)
 })
 
 
 
 // 创建新笔记（包括摘要）
-function createNoteFromSummary() {
-const summary = generateSummary()
-  createNote()
-  content.value = summary
+async function createNoteFromSummary() {
+  try {
+    // 确保摘要是最新的
+    await fetchSummary()
+
+    if (!summary.value) {
+      alert('摘要为空，无法创建新笔记')
+      return
+    }
+
+    createNote()
+    content.value = summary.value
+  } catch (e) {
+    console.error(e)
+    alert('生成摘要失败，无法创建新笔记')
+  }
 }
+
 
 async function copySummary() {
   if (!summary.value) return

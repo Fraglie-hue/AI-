@@ -238,7 +238,20 @@ watch([content, summaryMode], () => {
 
 // 创建新笔记（包括摘要）
 function createNoteFromSummary() {
-  const summary = generateSummary()
+  const res = await fetch('/api/summarize', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    text,
+    mode
+  })
+})
+
+const data = await res.json()
+const summary = data.summary
+
   createNote()
   content.value = summary
 }

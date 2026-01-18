@@ -196,62 +196,35 @@ function formatTime(ts) {
 
 
 // 摘要生成函数
-function generateSummary() {
+async function fetchSummary() {
   const text = content.value.trim()
-  if (!text) return ''
-
-  // 统一清洗文本
-  const cleanText = text.replace(/\n+/g, ' ')
-
-  // ① 智能模式（你原来的逻辑）
-  if (summaryMode.value === 'smart') {
-    const sentences = cleanText.match(/[^。！？.!?]+[。！？.!?]*/g) || []
-    let summary = ''
-    for (const s of sentences) {
-      if ((summary + s).length > 120) break
-      summary += s
-    }
-    if (summary.length < cleanText.length) {
-      summary = summary.trim() + ' ……'
-    }
-    return summary
+  if (!text) {
+    summary.value = ''
+    return
   }
 
-  // ② 首段模式
-  if (summaryMode.value === 'first') {
-    return cleanText.slice(0, 100) + (cleanText.length > 100 ? ' ……' : '')
-  }
+  const res = await fetch('/api/summarize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      mode: summaryMode.value
+    })
+  })
 
-  // ③ 长度限制模式
-  if (summaryMode.value === 'length') {
-    return cleanText.slice(0, 80) + (cleanText.length > 80 ? ' ……' : '')
-  }
-
-  return cleanText
+  const data = await res.json()
+  summary.value = data.summary
 }
-const summary = ref('')
 
 watch([content, summaryMode], () => {
-  summary.value = generateSummary()
+  fetchSummary()
 })
+
 
 
 // 创建新笔记（包括摘要）
 function createNoteFromSummary() {
-  const res = await fetch('/api/summarize', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    text,
-    mode
-  })
-})
-
-const data = await res.json()
-const summary = data.summary
-
+const summary = generateSummary()
   createNote()
   content.value = summary
 }

@@ -6,40 +6,67 @@ function json(data, status = 200) {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
   });
 }
 
+function generateSummaryByMode(text, mode) {
+  const cleanText = text.replace(/\n+/g, " ").trim();
+  if (!cleanText) return "";
+
+  // 智能模式（规则）
+  if (mode === "smart") {
+    const sentences = cleanText.match(/[^。！？.!?]+[。！？.!?]*/g) || [];
+    let summary = "";
+    for (const s of sentences) {
+      if ((summary + s).length > 120) break;
+      summary += s;
+    }
+    if (summary.length < cleanText.length) {
+      summary = summary.trim() + " ……";
+    }
+    return summary;
+  }
+
+  // 首段模式
+  if (mode === "first") {
+    return cleanText.slice(0, 100) + (cleanText.length > 100 ? " ……" : "");
+  }
+
+  // 定长模式
+  if (mode === "length") {
+    return cleanText.slice(0, 80) + (cleanText.length > 80 ? " ……" : "");
+  }
+
+  return cleanText;
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     try {
       const url = new URL(request.url);
 
-      // ===== 1️⃣ 只允许 /api/summarize =====
       if (url.pathname !== "/api/summarize") {
         return new Response("Not Found", { status: 404 });
       }
 
-      // ===== 2️⃣ CORS 预检 =====
       if (request.method === "OPTIONS") {
         return new Response(null, {
           status: 204,
           headers: {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Allow-Headers": "Content-Type",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
           },
         });
       }
 
-      // ===== 3️⃣ 只允许 POST =====
       if (request.method !== "POST") {
         return json({ error: "Method Not Allowed" }, 405);
       }
 
-      // ===== 4️⃣ 读取请求体 =====
       let body;
       try {
         body = await request.json();
@@ -48,58 +75,15 @@ export default {
       }
 
       const text = (body.text || "").trim();
+      const mode = body.mode || "smart";
+
       if (!text) {
-        return json({ error: "text is required" }, 400);
+        return json({ summary: "" });
       }
 
-      // ===== 5️⃣ 读取 ESA 环境变量（关键）=====
-      const apiKey = env.DASHSCOPE_API_KEY;
-      if (!apiKey) {
-        return json({ error: "Missing DASHSCOPE_API_KEY" }, 500);
-      }
-
-      // ===== 6️⃣ 调用通义千问 =====
-      const resp = await fetch(
-        "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "qwen-turbo",
-            input: {
-              prompt: `请将下面内容生成 80-150 字的中文摘要，并列出 3 个要点：\n${text}`,
-            },
-            parameters: {
-              temperature: 0.3,
-              max_tokens: 400,
-            },
-          }),
-        }
-      );
-
-      const raw = await resp.text();
-      if (!resp.ok) {
-        return json({ error: "LLM request failed", detail: raw }, 500);
-      }
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        return json({ error: "Bad LLM JSON", raw }, 500);
-      }
-
-      const summary =
-        data?.output?.text ||
-        data?.output?.choices?.[0]?.text ||
-        "";
-
+      const summary = generateSummaryByMode(text, mode);
       return json({ summary });
     } catch (e) {
-      // ===== 7️⃣ 终极兜底 =====
       return json(
         { error: "Edge runtime error", detail: String(e?.message || e) },
         500
@@ -107,3 +91,4 @@ export default {
     }
   },
 };
+

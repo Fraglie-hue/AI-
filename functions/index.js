@@ -108,10 +108,3 @@ export default {
     return json({ summary });
   },
 };
-
-async function generateSummary() {
-  // 这里先随便放个测试
-  console.log("generateSummary called");
-}
-
-window.generateSummary = generateSummary;

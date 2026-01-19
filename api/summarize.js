@@ -1,23 +1,48 @@
 export default async function handler(request) {
-  if (request.method !== 'POST') {
-  return new Response('Method Not Allowed', { status: 405 })
-}
+  try {
+    // 1️⃣ 方法校验
+    if (request.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ error: 'Method Not Allowed' }),
+        { status: 405, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
-const { text, mode } = await request.json()
+    // 2️⃣ JSON 解析兜底（核心）
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
-  if (!text) {
+    const { text = '', mode = 'smart' } = body
+
+    if (!text) {
+      return new Response(
+        JSON.stringify({ summary: '' }),
+        { headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const summary = generateSummaryByMode(text, mode)
+
     return new Response(
-      JSON.stringify({ summary: '' }),
+      JSON.stringify({ summary }),
       { headers: { 'Content-Type': 'application/json' } }
     )
+  } catch (e) {
+    // 3️⃣ 终极兜底：永远不要让异常冒泡到 ESA
+    return new Response(
+      JSON.stringify({
+        error: String(e?.message || e)
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
-
-  const summary = generateSummaryByMode(text, mode)
-
-  return new Response(
-    JSON.stringify({ summary }),
-    { headers: { 'Content-Type': 'application/json' } }
-  )
 }
 
 function generateSummaryByMode(text, mode) {
